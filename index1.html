@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>rem 响应式自动计算像素示例</title>
+    <style>
+        /* 基础样式，用于演示 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 750px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+        }
+        h1 {
+            font-size: 0.5rem; /* 演示用的极小值，实际会动态计算，下面会说明 */
+            margin-bottom: 0.3rem;
+            color: #0d6efd;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.2rem;
+        }
+        .demo-box {
+            background: #e7f5ff;
+            border-radius: 0.2rem;
+            padding: 0.2rem;
+            margin: 0.2rem 0;
+            border-left: 4px solid #0d6efd;
+        }
+        .remark {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            padding: 0.15rem 0.2rem;
+            border-radius: 0.1rem;
+            margin: 0.2rem 0;
+            font-size: 0.16rem;
+        }
+        button {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 0.12rem 0.24rem;
+            font-size: 0.18rem;
+            border-radius: 0.06rem;
+            cursor: pointer;
+            margin-right: 0.1rem;
+        }
+        button:hover {
+            background: #0b5ed7;
+        }
+        .px-value {
+            font-weight: bold;
+            color: #dc3545;
+        }
+        footer {
+            margin-top: 0.3rem;
+            text-align: center;
+            font-size: 0.14rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>林书航的小店（按摩服务）</h1>
+        <div class="demo-box">
+            <p style="font-size: 0.16rem;">月卡</code> 10元</p>
+            <p style="font-size: 0.16rem;">年卡</code> 50元</p>
+            <p style="font-size: 0.16rem;">季卡</code> 30元</p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- rem 响应式核心配置 ----------
+            // 设计稿宽度 (单位: px)，通常为 750 或 375
+            const DESIGN_WIDTH = 750;
+            // 基准值：设计稿上 1rem 对应多少 px (方便计算，常用 100)
+            const BASE_REM = 100;
+            // 允许的最小屏幕宽度 (可选，防止根字体过小)
+            const MIN_WIDTH = 320;
+            // 允许的最大屏幕宽度 (可选，防止过大)
+            const MAX_WIDTH = 1024;
+
+            // 获取 html 根元素
+            const docEl = document.documentElement;
+            // 用于存储当前根字体大小，方便工具函数使用
+            let currentRootFontSize = BASE_REM; // 初始默认
+
+            // 核心函数：根据当前屏幕宽度计算并设置根字体大小
+            function setRemUnit() {
+                // 获取屏幕宽度 (首选 document.documentElement.clientWidth, 兼容性更好)
+                let screenWidth = docEl.clientWidth;
+                // 如果屏幕宽度超出限制，则进行裁剪（保证极限下的可读性）
+                if (screenWidth < MIN_WIDTH) screenWidth = MIN_WIDTH;
+                if (screenWidth > MAX_WIDTH) screenWidth = MAX_WIDTH;
+
+                // 计算根字体大小: (屏幕宽度 / 设计稿宽度) * 基准rem对应的px
+                // 例如 750px 屏幕下: (750 / 750) * 100 = 100px → 1rem = 100px
+                // 375px 屏幕下: (375 / 750) * 100 = 50px  → 1rem = 50px (等比缩放)
+                const rootFontSize = (screenWidth / DESIGN_WIDTH) * BASE_REM;
+                currentRootFontSize = rootFontSize;
+
+                // 设置给 html 根元素
+                docEl.style.fontSize = rootFontSize + 'px';
+
+                // 可选：更新页面上的显示信息
+                updateDisplayInfo(screenWidth, rootFontSize);
+            }
+
+            // 更新页面上的显示字段
+            function updateDisplayInfo(width, fontSize) {
+                const screenSpan = document.getElementById('screenWidth');
+                const rootSpan = document.getElementById('rootFontSize');
+                if (screenSpan) screenSpan.innerText = width + 'px';
+                if (rootSpan) rootSpan.innerText = fontSize.toFixed(2) + 'px (1rem = ' + fontSize.toFixed(2) + 'px)';
+            }
+
+            // 工具函数：将设计稿上的 px 值转换为 rem 字符串 (用于编写样式时参考)
+            function pxToRem(pxValue) {
+                if (!pxValue && pxValue !== 0) return '';
+                // 基于设计稿基准: 设计稿上 1rem = BASE_REM px，所以 px转rem = px / BASE_REM
+                const remValue = pxValue / BASE_REM;
+                return remValue + 'rem';
+            }
+
+            // 工具函数：将当前 rem 值转换为实际的 px 值 (基于当前的根字体)
+            function remToPx(remValue) {
+                return remValue * currentRootFontSize;
+            }
+
+            // ---------- 监听 resize 事件，自适应 ----------
+            // 防抖处理，避免频繁计算
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    setRemUnit();
+                }, 100); // 100ms 延迟
+            });
+
+            // 页面加载完成后设置一次，并且 DOM 完全构建后也执行（针对动态内容）
+            window.addEventListener('DOMContentLoaded', function() {
+                setRemUnit();
+            });
+
+            // 立即执行一次，防止样式闪动（注意：此时可能 DOM 尚未解析完全，但显示更新函数会等待元素存在）
+            setRemUnit();
+
+            // ---------- 附加演示交互 ----------
+            // 等待 DOM 加载完成绑定事件
+            window.addEventListener('DOMContentLoaded', function() {
+                // 按钮：px转rem
+                const btnPx2rem = document.getElementById('btnPx2rem');
+                if (btnPx2rem) {
+                    btnPx2rem.addEventListener('click', function() {
+                        const pxVal = 16; // 演示16px
+                        const remVal = pxToRem(pxVal);
+                        console.log(`🔸 设计稿 16px 对应 rem: ${remVal} （样式写 ${remVal}）`);
+                        alert(`设计稿 16px → rem: ${remVal}\n（基于设计稿基准 ${BASE_REM}px/rem）`);
+                    });
+                }
+
+                // 按钮：rem转px (当前屏幕下)
+                const btnRem2px = document.getElementById('btnRem2px');
+                if (btnRem2px) {
+                    btnRem2px.addEventListener('click', function() {
+                        const remVal = 0.24; // 演示 0.24rem
+                        const pxVal = remToPx(remVal).toFixed(2);
+                        console.log(`🔸 当前屏幕下 0.24rem = ${pxVal}px (根字体 ${currentRootFontSize.toFixed(2)}px)`);
+                        alert(`当前屏幕下 0.24rem = ${pxVal}px\n根字体大小: ${currentRootFontSize.toFixed(2)}px`);
+                    });
+                }
+
+                // 按钮：模拟最大宽度 (直接强制设置根字体为MAX_WIDTH下的值)
+                const btnSetMax = document.getElementById('btnSetMax');
+                if (btnSetMax) {
+                    btnSetMax.addEventListener('click', function() {
+                        // 强制按 MAX_WIDTH 计算
+                        const forcedWidth = MAX_WIDTH;
+                        const forcedRoot = (forcedWidth / DESIGN_WIDTH) * BASE_REM;
+                        docEl.style.fontSize = forcedRoot + 'px';
+                        currentRootFontSize = forcedRoot;
+                        updateDisplayInfo(forcedWidth, forcedRoot);
+                        console.log(`🔸 已模拟最大宽度 ${MAX_WIDTH}px, 根字体 ${forcedRoot.toFixed(2)}px`);
+                    });
+                }
+            });
+
+            // 额外：当通过开发者工具改变设备模拟时，orientation change 等也触发 resize，已包含
+            // 针对某些奇葩情况，再保险一次
+            window.addEventListener('pageshow', function(e) {
+                if (e.persisted) { // 如果是从缓存加载，重新设置
+                    setRemUnit();
+                }
+            });
+
+            // 将工具函数暴露给全局，方便在控制台调试 (可选)
+            window.remHelper = {
+                pxToRem: pxToRem,
+                remToPx: remToPx,
+                currentRootFont: () => currentRootFontSize,
+                setRemUnit: setRemUnit
+            };
+        })();
+    </script>
+</body>
+</html>
